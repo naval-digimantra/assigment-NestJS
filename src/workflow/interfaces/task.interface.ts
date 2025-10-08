@@ -1,3 +1,5 @@
+import { TaskStatus } from '../enums/workflow.enums';
+
 /**
  * Core task definition interface
  */
@@ -26,16 +28,6 @@ export interface WorkflowDefinition {
   globalRetries?: number;
 }
 
-/**
- * Task execution status enumeration
- */
-export enum TaskStatus {
-  PENDING = 'pending',
-  RUNNING = 'running',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  RETRYING = 'retrying'
-}
 
 /**
  * Task execution state tracking

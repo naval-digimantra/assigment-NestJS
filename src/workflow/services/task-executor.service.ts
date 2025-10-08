@@ -3,10 +3,11 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { 
   TaskDefinition, 
   TaskExecution, 
-  TaskResult, 
-  TaskStatus 
+  TaskResult
 } from '../interfaces/task.interface';
-import { WorkflowEvents, TaskEvent } from '../interfaces/events.interface';
+import { TaskEvent } from '../interfaces/events.interface';
+import { WorkflowEvents } from '../enums/workflow.enums';
+import { TaskStatus } from '../enums/workflow.enums';
 
 export interface RetryConfig {
   maxAttempts: number;
@@ -66,20 +67,18 @@ export class TaskExecutorService {
       execution.status = attempt === 0 ? TaskStatus.RUNNING : TaskStatus.RETRYING;
 
       // Emit appropriate event
+      const payload: TaskEvent = {
+        taskId: taskDefinition.id,
+        timestamp: new Date(),
+        attempt: execution.attempts
+      };
+      let workflowEvent = WorkflowEvents.TASK_RETRY;
       if (attempt === 0) {
-        this.emitTaskEvent(WorkflowEvents.TASK_STARTED, {
-          taskId: taskDefinition.id,
-          timestamp: new Date(),
-          attempt: execution.attempts
-        });
+        workflowEvent = WorkflowEvents.TASK_STARTED;
       } else {
-        this.emitTaskEvent(WorkflowEvents.TASK_RETRY, {
-          taskId: taskDefinition.id,
-          timestamp: new Date(),
-          attempt: execution.attempts,
-          error: lastError
-        });
+        payload.error = lastError;
       }
+      this.emitTaskEvent(workflowEvent, payload);
 
       try {
         // Execute task with timeout and abort signal
@@ -220,17 +219,26 @@ export class TaskExecutorService {
         return;
       }
 
-      const timeoutId = setTimeout(() => {
-        if (abortListener) {
-          abortSignal?.removeEventListener('abort', abortListener);
+      let abortListener: (() => void) | undefined;
+      let timeoutId: NodeJS.Timeout | undefined;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
         }
+        if (abortListener && abortSignal) {
+          abortSignal.removeEventListener('abort', abortListener);
+        }
+      };
+
+      timeoutId = setTimeout(() => {
+        cleanup();
         resolve();
       }, delay);
 
-      let abortListener: (() => void) | undefined;
       if (abortSignal) {
         abortListener = () => {
-          clearTimeout(timeoutId);
+          cleanup();
           reject(new Error('Retry wait aborted'));
         };
         abortSignal.addEventListener('abort', abortListener);

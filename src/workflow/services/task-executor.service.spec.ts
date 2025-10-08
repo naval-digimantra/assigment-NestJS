@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskExecutorService } from './task-executor.service';
-import { TaskDefinition, TaskStatus } from '../interfaces/task.interface';
+import { TaskDefinition } from '../interfaces/task.interface';
+import { TaskStatus } from '../enums/workflow.enums';
 import { WorkflowEvents } from '../interfaces/events.interface';
 
 describe('TaskExecutorService', () => {

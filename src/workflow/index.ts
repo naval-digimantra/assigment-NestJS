@@ -6,3 +6,6 @@ export * from './interfaces';
 
 // Export all services
 export * from './services';
+
+// Export decorators
+export * from './decorators';

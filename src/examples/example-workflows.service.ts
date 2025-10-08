@@ -10,6 +10,7 @@ import {
   TaskEvent, 
   WorkflowEvent 
 } from '../workflow/interfaces/events.interface';
+import { Task, Workflow, getTaskDefinitions } from '../workflow/decorators/task.decorator';
 
 /**
  * Example service demonstrating various workflow patterns and use cases
@@ -21,39 +22,29 @@ export class ExampleWorkflowsService {
   constructor(private readonly workflowEngine: WorkflowEngineService) {}
 
   /**
-   * Example 1: Simple linear workflow - fetchData -> processData -> saveResult
+   * Example 1: Simple linear workflow using decorators - fetchData -> processData -> saveResult
    */
   async runDataProcessingWorkflow() {
-    this.logger.log('Starting data processing workflow example...');
+    this.logger.log('Starting data processing workflow example using decorators...');
 
-    const workflow: WorkflowDefinition = {
-      tasks: [
-        {
-          id: 'fetchData',
-          handler: this.fetchDataTask,
-          retries: 2,
-          timeoutMs: 5000
-        },
-        {
-          id: 'processData',
-          handler: this.processDataTask,
-          dependencies: ['fetchData'],
-          retries: 1,
-          timeoutMs: 10000
-        },
-        {
-          id: 'saveResult',
-          handler: this.saveResultTask,
-          dependencies: ['processData'],
-          retries: 3,
-          timeoutMs: 5000
-        }
-      ],
-      globalRetries: 1,
-      globalTimeout: 30000
-    };
+    // Create an instance of the decorated workflow class
+    const workflowInstance = new DataProcessingWorkflow();
+    
+    // Get the workflow definition from the decorated class
+    const workflowDefinition = workflowInstance.getWorkflowDefinition();
+    
+    this.logger.log('Workflow definition from decorators:', {
+      name: workflowDefinition.name,
+      taskCount: workflowDefinition.tasks.length,
+      tasks: workflowDefinition.tasks.map(t => ({
+        id: t.id,
+        dependencies: t.dependencies,
+        retries: t.retries,
+        timeoutMs: t.timeoutMs
+      }))
+    });
 
-    const result = await this.workflowEngine.run(workflow);
+    const result = await this.workflowEngine.run(workflowDefinition);
     
     this.logger.log('Data processing workflow completed:', {
       success: result.success,
@@ -66,51 +57,29 @@ export class ExampleWorkflowsService {
   }
 
   /**
-   * Example 2: Parallel execution workflow
+   * Example 2: Parallel execution workflow using decorators
    */
   async runParallelProcessingWorkflow() {
-    this.logger.log('Starting parallel processing workflow example...');
+    this.logger.log('Starting parallel processing workflow example using decorators...');
 
-    const workflow: WorkflowDefinition = {
-      tasks: [
-        {
-          id: 'initializeSystem',
-          handler: this.initializeSystemTask,
-          timeoutMs: 3000
-        },
-        {
-          id: 'fetchUserData',
-          handler: this.fetchUserDataTask,
-          dependencies: ['initializeSystem'],
-          retries: 2
-        },
-        {
-          id: 'fetchProductData',
-          handler: this.fetchProductDataTask,
-          dependencies: ['initializeSystem'],
-          retries: 2
-        },
-        {
-          id: 'fetchOrderData',
-          handler: this.fetchOrderDataTask,
-          dependencies: ['initializeSystem'],
-          retries: 2
-        },
-        {
-          id: 'generateReport',
-          handler: this.generateReportTask,
-          dependencies: ['fetchUserData', 'fetchProductData', 'fetchOrderData'],
-          timeoutMs: 15000
-        },
-        {
-          id: 'sendNotification',
-          handler: this.sendNotificationTask,
-          dependencies: ['generateReport']
-        }
-      ]
-    };
+    // Create an instance of the decorated workflow class
+    const workflowInstance = new ParallelProcessingWorkflow();
+    
+    // Get the workflow definition from the decorated class
+    const workflowDefinition = workflowInstance.getWorkflowDefinition();
+    
+    this.logger.log('Parallel workflow definition from decorators:', {
+      name: workflowDefinition.name,
+      taskCount: workflowDefinition.tasks.length,
+      tasks: workflowDefinition.tasks.map(t => ({
+        id: t.id,
+        dependencies: t.dependencies,
+        retries: t.retries,
+        timeoutMs: t.timeoutMs
+      }))
+    });
 
-    const result = await this.workflowEngine.run(workflow);
+    const result = await this.workflowEngine.run(workflowDefinition);
     
     this.logger.log('Parallel processing workflow completed:', {
       success: result.success,
@@ -302,5 +271,151 @@ export class ExampleWorkflowsService {
   @OnEvent(WorkflowEvents.TASK_RETRY)
   handleTaskRetry(payload: TaskEvent) {
     this.logger.warn(`🔄 Task retry: ${payload.taskId} - attempt ${payload.attempt}`);
+  }
+
+}
+
+@Workflow('data-processing', { globalTimeout: 30000, globalRetries: 1 })
+export class DataProcessingWorkflow {
+  /**
+   * Fetch data from external source
+   */
+  @Task('fetchData', { retries: 2, timeoutMs: 5000 })
+  async fetchData() {
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const data = { data: 'Sample data from API', timestamp: new Date() };
+    console.log('✅ Fetched data:', data);
+    return data;
+  }
+
+  @Task('processData', { 
+    dependencies: ['fetchData'], 
+    retries: 1, 
+    timeoutMs: 10000 
+  })
+  async processData() {
+    // Simulate data processing
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const result = { processedData: 'Processed sample data', count: 42 };
+    console.log('Processed data:', result);
+    return result;
+  }
+
+  /**
+   * Save the processed result
+   */
+  @Task('saveResult', { 
+    dependencies: ['processData'], 
+    retries: 3, 
+    timeoutMs: 5000 
+  })
+  async saveResult() {
+    // Simulate saving to database
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const result = { saved: true, id: `result_${Date.now()}` };
+    console.log('Saved result:', result);
+    return result;
+  }
+
+  /**
+   * Get workflow definition from decorators
+   */
+  getWorkflowDefinition() {
+    const taskDefinitions = getTaskDefinitions(this.constructor);
+    return {
+      name: 'data-processing',
+      tasks: taskDefinitions,
+      globalTimeout: 30000,
+      globalRetries: 1
+    };
+  }
+}
+
+@Workflow('parallel-processing')
+export class ParallelProcessingWorkflow {
+  /**
+   * Initialize the system
+   */
+  @Task('initializeSystem', { timeoutMs: 3000 })
+  async initializeSystem() {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('✅ System initialized');
+    return { initialized: true };
+  }
+
+  /**
+   * Fetch user data (runs in parallel with other fetch tasks)
+   */
+  @Task('fetchUserData', { 
+    dependencies: ['initializeSystem'], 
+    retries: 2 
+  })
+  async fetchUserData() {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    console.log('✅ User data fetched');
+    return { users: [{ id: 1, name: 'John' }, { id: 2, name: 'Jane' }] };
+  }
+
+  /**
+   * Fetch product data (runs in parallel with other fetch tasks)
+   */
+  @Task('fetchProductData', { 
+    dependencies: ['initializeSystem'], 
+    retries: 2 
+  })
+  async fetchProductData() {
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    console.log('✅ Product data fetched');
+    return { products: [{ id: 1, name: 'Product A' }, { id: 2, name: 'Product B' }] };
+  }
+
+  /**
+   * Fetch order data (runs in parallel with other fetch tasks)
+   */
+  @Task('fetchOrderData', { 
+    dependencies: ['initializeSystem'], 
+    retries: 2 
+  })
+  async fetchOrderData() {
+    await new Promise(resolve => setTimeout(resolve, 1800));
+    console.log('✅ Order data fetched');
+    return { orders: [{ id: 1, userId: 1, productId: 1 }] };
+  }
+
+  /**
+   * Generate report (waits for all fetch tasks to complete)
+   */
+  @Task('generateReport', { 
+    dependencies: ['fetchUserData', 'fetchProductData', 'fetchOrderData'], 
+    timeoutMs: 15000 
+  })
+  async generateReport() {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log('✅ Report generated');
+    return { reportId: 'report-123', generatedAt: new Date() };
+  }
+
+  /**
+   * Send notification (runs after report generation)
+   */
+  @Task('sendNotification', { 
+    dependencies: ['generateReport'] 
+  })
+  async sendNotification() {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    console.log('✅ Notification sent');
+    return { notificationId: 'notif-456', sentAt: new Date() };
+  }
+
+  /**
+   * Get workflow definition from decorators
+   */
+  getWorkflowDefinition() {
+    const taskDefinitions = getTaskDefinitions(this.constructor);
+    return {
+      name: 'parallel-processing',
+      tasks: taskDefinitions
+    };
   }
 }
