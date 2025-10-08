@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import * as os from 'os';
 import { 
   WorkflowResult, 
   ExecutionPlan 
@@ -9,7 +10,8 @@ import {
   TaskResult, 
   WorkflowDefinition 
 } from '../interfaces/task.interface';
-import { WorkflowEvents, WorkflowEvent } from '../interfaces/events.interface';
+import { WorkflowEvent } from '../interfaces/events.interface';
+import { WorkflowEvents } from '../enums/workflow.enums';
 import { DependencyResolverService } from './dependency-resolver.service';
 import { TaskExecutorService } from './task-executor.service';
 
@@ -17,6 +19,14 @@ export interface WorkflowFailurePolicy {
   stopOnFirstFailure: boolean;
   allowPartialSuccess: boolean;
   maxFailurePercentage: number;
+}
+
+export interface WorkflowExecutionParams {
+  executionPlan: ExecutionPlan;
+  workflow: WorkflowDefinition;
+  workflowId: string;
+  failurePolicy: WorkflowFailurePolicy;
+  abortSignal: AbortSignal;
 }
 
 interface ActiveWorkflow {
@@ -149,13 +159,13 @@ export class WorkflowEngineService implements OnModuleDestroy {
       this.logger.debug(`Created execution plan with ${executionPlan.batches.length} batches`);
 
       // Step 3: Execute workflow according to plan with enhanced error handling
-      const workflowResult = await this.executeWorkflowPlanWithRecovery(
+      const workflowResult = await this.executeWorkflowPlanWithRecovery({
         executionPlan, 
         workflow,
         workflowId,
-        policy,
-        activeWorkflow.abortController.signal
-      );
+        failurePolicy: policy,
+        abortSignal: activeWorkflow.abortController.signal
+      });
 
       // Calculate total execution time
       const executionTime = Date.now() - startTime;
@@ -360,12 +370,9 @@ export class WorkflowEngineService implements OnModuleDestroy {
    * Executes the workflow according to the execution plan with recovery mechanisms
    */
   private async executeWorkflowPlanWithRecovery(
-    executionPlan: ExecutionPlan,
-    workflow: WorkflowDefinition,
-    workflowId: string,
-    failurePolicy: WorkflowFailurePolicy,
-    abortSignal: AbortSignal
+    params: WorkflowExecutionParams
   ): Promise<WorkflowResult> {
+    const { executionPlan, workflow, workflowId, failurePolicy, abortSignal } = params;
     const results: Record<string, any> = {};
     const errors: Record<string, Error> = {};
     const completedTasks: string[] = [];
@@ -725,7 +732,6 @@ export class WorkflowEngineService implements OnModuleDestroy {
    * Get optimal concurrency - simple approach based on CPU cores
    */
   private getOptimalConcurrency(): number {
-    const os = require('os');
     const cpuCores = os.cpus().length;
     // TODO: make this configurable instead of hardcoded
     return Math.min(cpuCores * 2, 10);

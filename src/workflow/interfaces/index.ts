@@ -1,8 +1,11 @@
-// Task-related interfaces and enums
+// Task-related interfaces
 export * from './task.interface';
 
 // Workflow-related interfaces
 export * from './workflow.interface';
 
-// Event-related interfaces and enums
+// Event-related interfaces
 export * from './events.interface';
+
+// Enums
+export * from '../enums/workflow.enums';

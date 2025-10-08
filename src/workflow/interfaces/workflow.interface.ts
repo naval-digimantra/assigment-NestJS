@@ -1,3 +1,5 @@
+import { TaskDefinition } from './task.interface';
+
 /**
  * Result of an entire workflow execution
  */
@@ -23,7 +25,7 @@ export interface WorkflowResult {
  */
 export interface ExecutionBatch {
   /** Tasks that can be executed in this batch */
-  tasks: import('./task.interface').TaskDefinition[];
+  tasks: TaskDefinition[];
   /** Whether tasks in this batch can run in parallel */
   canRunInParallel: boolean;
 }

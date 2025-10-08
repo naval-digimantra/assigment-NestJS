@@ -1,15 +1,5 @@
-/**
- * Workflow lifecycle events enumeration
- */
-export enum WorkflowEvents {
-  TASK_STARTED = 'task.started',
-  TASK_COMPLETED = 'task.completed',
-  TASK_FAILED = 'task.failed',
-  TASK_RETRY = 'task.retry',
-  WORKFLOW_STARTED = 'workflow.started',
-  WORKFLOW_COMPLETED = 'workflow.completed',
-  WORKFLOW_FAILED = 'workflow.failed'
-}
+import { WorkflowResult } from './workflow.interface';
+import { WorkflowEvents } from '../enums/workflow.enums';
 
 /**
  * Base event payload for task-related events
@@ -42,7 +32,7 @@ export interface WorkflowEvent {
   /** Number of failed tasks */
   failedTasks?: number;
   /** Workflow execution result (for completion events) */
-  result?: import('./workflow.interface').WorkflowResult;
+  result?: WorkflowResult;
   /** Error information (for failure events) */
   error?: Error;
 }
